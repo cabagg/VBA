@@ -1,0 +1,303 @@
+Sub 哮喘数据整理()
+
+   ' B：卡类型  自费/0/2
+   ' D: 性别  女/2
+   ' E: 出生日期 格式YYYY-MM-DD 开头
+   ' J: 就诊日期 格式YYYY-MM-DD 开头
+   ' L: 诊断结论
+ 
+    Application.ScreenUpdating = False
+    Application.Calculation = xlCalculationManual
+    
+    
+    
+    
+    generateLJResult (ActiveSheet.Name)
+    
+
+    
+End Sub
+
+
+
+
+Sub 哮喘文件夹数据整理()
+
+    Dim fnameList, fnameCurFile As Variant
+    Dim countFiles, countSheets As Integer
+    Dim wksCurSheet As Worksheet
+    Dim wbkCurBook, wbkSrcBook As Workbook
+
+    fnameList = Application.GetOpenFilename(FileFilter:="Microsoft Excel Workbooks (*.xls;*.xlsx;*.xlsm),*.xls;*.xlsx;*.xlsm", Title:="Choose Excel files to merge", MultiSelect:=True)
+
+
+    If (vbBoolean <> VarType(fnameList)) Then
+
+        If (UBound(fnameList) > 0) Then
+
+            countFiles = 0
+
+            countSheets = 0
+            
+            Dim saveRule
+            Dim newShName
+            saveRule = InputBox("Do you want to save to current file? Y or N", "Save File", "N")
+
+            Application.ScreenUpdating = False
+
+            Application.Calculation = xlCalculationManual
+
+            Set wbkCurBook = ActiveWorkbook
+
+            For Each fnameCurFile In fnameList
+
+                'countFiles = countFiles + 1
+
+                Set wbkSrcBook = Workbooks.Open(Filename:=fnameCurFile)
+
+                For Each wksCurSheet In wbkSrcBook.Sheets
+                
+                    ' wksCurSheet.Select
+                     newShName = generateLJResult(wksCurSheet.Name)
+                     If saveRule = "Y" Then
+                        Sheets(newShName).Copy after:=wbkCurBook.Sheets(wbkCurBook.Sheets.Count)
+                     End If
+
+                Next
+                If saveRule = "N" Then
+                        wbkSrcBook.Close SaveChanges:=True
+                Else
+                        wbkSrcBook.Close SaveChanges:=False
+                End If
+                
+
+            Next
+
+            Application.ScreenUpdating = True
+
+            Application.Calculation = xlCalculationAutomatic
+
+            'MsgBox "Processed " & countFiles & " files" & vbCrLf & "Merged " & countSheets & " worksheets", Title:="Merge Excel files"
+
+        End If
+
+    Else
+
+        MsgBox "No files selected", Title:="Merge Excel files"
+
+    End If
+ 
+
+
+End Sub
+
+
+
+Function generateLJResult(ByVal sheetName As String) As String
+
+   Dim sourceSheetName As String
+   Dim currentAge As Integer
+   Dim currentDay As Date
+   Dim dayGap As Integer
+   Dim startDay As Date
+   Dim birthDay As Date
+   Dim arrResult(1096, 25) As Integer
+   
+   
+   sourceSheetName = sheetName
+   startDay = "2016-1-1"                                          'TODO: 起始日期
+
+    Application.ScreenUpdating = False
+ 
+   'Read Source Data
+    
+    Range("A2").Select
+    Dim counter
+    Dim sex
+    Dim insuranceType
+    Dim dayLoc
+    counter = 0
+    
+    For tempInt = 0 To 1095
+        arrResult(tempInt, 0) = tempInt
+    Next tempInt
+ 
+    Do Until IsEmpty(ActiveCell.Offset(counter, 8).Value) And IsEmpty(ActiveCell.Offset(counter + 1, 8).Value)
+        
+        If InStr(ActiveCell.Offset(counter, 11).Value, "哮喘") > 0 Or InStr(ActiveCell.Offset(counter, 11).Value, "喘息") > 0 Then   'TODO: 哮喘
+              
+              dayLoc = InStr(ActiveCell.Offset(counter, 9).Value, " ")
+              If dayLoc <> 0 Then
+                    currentDay = CDate(Mid(CStr(ActiveCell.Offset(counter, 9).Value), 1, dayLoc))
+              Else
+                If InStr(ActiveCell.Offset(counter, 9).Value, "/") <> 0 Or InStr(ActiveCell.Offset(counter, 9).Value, "-") <> 0 Then
+                    currentDay = CDate(ActiveCell.Offset(counter, 9).Value)
+                Else
+                    currentDay = Format(Mid(CStr(ActiveCell.Offset(counter, 9).Value), 1, 8), "####/##/##")
+                End If
+              End If
+
+              dayLoc = InStr(ActiveCell.Offset(counter, 4).Value, " ")
+              If dayLoc <> 0 Then
+                    birthDay = CDate(Mid(CStr(ActiveCell.Offset(counter, 4).Value), 1, dayLoc))
+              Else
+              If InStr(ActiveCell.Offset(counter, 4).Value, "/") <> 0 Or InStr(ActiveCell.Offset(counter, 4).Value, "-") <> 0 Then
+                    birthDay = CDate(ActiveCell.Offset(counter, 4).Value)
+                Else
+                    birthDay = Format(Mid(CStr(ActiveCell.Offset(counter, 4).Value), 1, 8), "####/##/##")
+                End If
+              End If
+              
+             
+              currentAge = Int((currentDay - birthDay) / 365)
+              insuranceType = ActiveCell.Offset(counter, 1).Value
+              sex = ActiveCell.Offset(counter, 3).Value
+              
+   
+             ' Update Quantity array
+              dayGap = DateDiff("d", startDay, currentDay)
+              If currentAge < 14 Then
+                 arrResult(dayGap, 1) = arrResult(dayGap, 1) + 1
+
+              
+              If InStr(insuranceType, "自费") > 0 Or InStr(insuranceType, "0") > 0 Or InStr(insuranceType, "2") > 0 Then    'TODO: 自费值
+                
+                If InStr(sex, "女") > 0 Or InStr(sex, "2") > 0 Then                                                                      'TODO: 女
+                      arrResult(dayGap, 3) = arrResult(dayGap, 3) + 1
+                      arrResult(dayGap, 7) = arrResult(dayGap, 7) + 1
+                      arrResult(dayGap, 9) = arrResult(dayGap, 9) + 1
+                Else
+                      arrResult(dayGap, 2) = arrResult(dayGap, 2) + 1
+                      arrResult(dayGap, 7) = arrResult(dayGap, 7) + 1
+                      arrResult(dayGap, 8) = arrResult(dayGap, 8) + 1
+                End If
+                
+                If currentAge >= 14 Then                                                              'TODO   14岁
+                      arrResult(dayGap, 13) = arrResult(dayGap, 13) + 1
+                      arrResult(dayGap, 14) = arrResult(dayGap, 14) + 1
+                      arrResult(dayGap, 23) = arrResult(dayGap, 23) + 1
+                      arrResult(dayGap, 24) = arrResult(dayGap, 24) + 1
+                ElseIf currentAge < 14 And currentAge >= 6 Then                                                             'TODO    6岁
+                      arrResult(dayGap, 12) = arrResult(dayGap, 12) + 1
+                      arrResult(dayGap, 14) = arrResult(dayGap, 14) + 1
+                      arrResult(dayGap, 22) = arrResult(dayGap, 22) + 1
+                      arrResult(dayGap, 24) = arrResult(dayGap, 24) + 1
+                ElseIf currentAge < 6 And currentAge >= 3 Then                                                                'TODO    3岁
+                      arrResult(dayGap, 11) = arrResult(dayGap, 11) + 1
+                      arrResult(dayGap, 21) = arrResult(dayGap, 21) + 1
+                ElseIf currentAge < 3 Then
+                      arrResult(dayGap, 10) = arrResult(dayGap, 10) + 1
+                      arrResult(dayGap, 20) = arrResult(dayGap, 20) + 1
+                End If
+              
+             
+              Else
+              
+                If InStr(sex, "女") > 0 Or InStr(sex, "2") > 0 Then                                             'TODO: 女
+                      arrResult(dayGap, 3) = arrResult(dayGap, 3) + 1
+                      arrResult(dayGap, 4) = arrResult(dayGap, 4) + 1
+                      arrResult(dayGap, 6) = arrResult(dayGap, 6) + 1
+                Else
+                      arrResult(dayGap, 2) = arrResult(dayGap, 2) + 1
+                      arrResult(dayGap, 4) = arrResult(dayGap, 4) + 1
+                      arrResult(dayGap, 5) = arrResult(dayGap, 5) + 1
+                End If
+                
+               If currentAge >= 14 Then                                                                   'TODO   14岁
+                      arrResult(dayGap, 13) = arrResult(dayGap, 13) + 1
+                      arrResult(dayGap, 14) = arrResult(dayGap, 14) + 1
+                      arrResult(dayGap, 18) = arrResult(dayGap, 18) + 1
+                      arrResult(dayGap, 19) = arrResult(dayGap, 19) + 1
+                ElseIf currentAge < 14 And currentAge >= 6 Then                                                         'TODO   6岁
+                      arrResult(dayGap, 12) = arrResult(dayGap, 12) + 1
+                      arrResult(dayGap, 14) = arrResult(dayGap, 14) + 1
+                      arrResult(dayGap, 17) = arrResult(dayGap, 17) + 1
+                      arrResult(dayGap, 19) = arrResult(dayGap, 19) + 1
+                ElseIf currentAge < 6 And currentAge >= 3 Then                                                               'TODO   3岁
+                      arrResult(dayGap, 11) = arrResult(dayGap, 11) + 1
+                      arrResult(dayGap, 16) = arrResult(dayGap, 16) + 1
+                ElseIf currentAge < 3 Then
+                      arrResult(dayGap, 10) = arrResult(dayGap, 10) + 1
+                      arrResult(dayGap, 15) = arrResult(dayGap, 15) + 1
+                End If
+
+              End If
+              
+              End If
+              
+        End If
+        
+        'Select next line in source sheet
+        counter = counter + 1
+ 
+    Loop
+       
+     'Add a new Sheet
+    Dim shName As String
+    shName = Mid(ActiveWorkbook.Name, 1, 8)
+    Set DestSh = ActiveWorkbook.Worksheets.Add
+    DestSh.Name = shName
+
+    Sheets(DestSh.Name).Select                                                              'TODO   第一行
+    Range("A1").Select
+    ActiveCell.FormulaR1C1 = "date"
+    Range("B1").Select
+    ActiveCell.FormulaR1C1 = "total"
+    Range("C1").Select
+    ActiveCell.FormulaR1C1 = "male"
+    Range("D1").Select
+    ActiveCell.FormulaR1C1 = "female"
+    Range("E1").Select
+    ActiveCell.FormulaR1C1 = "ins"
+    Range("F1").Select
+    ActiveCell.FormulaR1C1 = "ins_m"
+    Range("G1").Select
+    ActiveCell.FormulaR1C1 = "ins_f"
+    Range("H1").Select
+    ActiveCell.FormulaR1C1 = "zf"
+    Range("I1").Select
+    ActiveCell.FormulaR1C1 = "zf_m"
+    Range("J1").Select
+    ActiveCell.FormulaR1C1 = "zf_f"
+    Range("K1").Select
+    ActiveCell.FormulaR1C1 = "age_03"
+    Range("L1").Select
+    ActiveCell.FormulaR1C1 = "age_36"
+    Range("M1").Select
+    ActiveCell.FormulaR1C1 = "age_614"
+    Range("N1").Select
+    ActiveCell.FormulaR1C1 = "age_1418"
+    Range("O1").Select
+    ActiveCell.FormulaR1C1 = "age_618"
+    Range("P1").Select
+    ActiveCell.FormulaR1C1 = "ins_age_03"
+    Range("Q1").Select
+    ActiveCell.FormulaR1C1 = "ins_age_36"
+    Range("R1").Select
+    ActiveCell.FormulaR1C1 = "ins_age_614"
+    Range("S1").Select
+    ActiveCell.FormulaR1C1 = "ins_age_1418"
+    Range("T1").Select
+    ActiveCell.FormulaR1C1 = "ins_age_618"
+    Range("U1").Select
+    ActiveCell.FormulaR1C1 = "zf_age_03"
+    Range("V1").Select
+    ActiveCell.FormulaR1C1 = "zf_age_36"
+    Range("W1").Select
+    ActiveCell.FormulaR1C1 = "zf_age_614"
+    Range("X1").Select
+    ActiveCell.FormulaR1C1 = "zf_age_1418"
+    Range("Y1").Select
+    ActiveCell.FormulaR1C1 = "zf_age_618"
+
+    ActiveSheet.Range("A2:Y1097").Value = arrResult
+
+    Range("A2").Select
+
+    ActiveCell.FormulaR1C1 = startDay
+
+    Selection.AutoFill Destination:=Range("A2:A1097"), Type:=xlFillDefault
+    
+    generateLJResult = DestSh.Name
+
+End Function
