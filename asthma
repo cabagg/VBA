@@ -2,20 +2,15 @@ Sub 哮喘数据整理()
 
    ' B：卡类型  自费/0/2
    ' D: 性别  女/2
-   ' E: 出生日期 格式YYYY-MM-DD 开头
-   ' J: 就诊日期 格式YYYY-MM-DD 开头
+   ' E: 出生日期 
+   ' J: 就诊日期 
    ' L: 诊断结论
  
     Application.ScreenUpdating = False
-    Application.Calculation = xlCalculationManual
-    
-    
-    
-    
+    Application.Calculation = xlCalculationManual 
+        
     generateLJResult (ActiveSheet.Name)
-    
 
-    
 End Sub
 
 
